@@ -1,0 +1,43 @@
+# References:
+# https://baeke.info/2021/03/28/distroless-or-scratch-for-go-apps/
+# https://github.com/gbaeke/go-template/blob/main/Dockerfile.distroless
+
+# argument for Go version
+ARG GO_VERSION=1.26.3
+
+# STAGE 1: building the executable
+FROM golang:${GO_VERSION}-alpine AS build
+
+# git required for go mod
+# RUN apk add --no-cache git
+
+# Working directory will be created if it does not exist
+WORKDIR /src
+
+# We use go modules; copy go.mod and go.sum
+# COPY ./go.mod ./go.sum ./
+COPY ./go.mod ./
+# RUN go mod download
+
+# Import code
+COPY ./ ./
+
+# Run tests
+# RUN CGO_ENABLED=0 go test -timeout 30s -v github.com/gbaeke/go-template/pkg/api
+
+# Build the executable
+RUN CGO_ENABLED=0 go build \
+	-installsuffix 'static' \
+	-o /app .
+
+# STAGE 2: build the container to run
+FROM gcr.io/distroless/static AS final
+
+# add maintainer label
+LABEL maintainer="nolan"
+
+# copy compiled app
+COPY --from=build /app /app
+
+# run binary
+ENTRYPOINT ["/app"]
